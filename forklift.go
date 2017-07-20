@@ -35,24 +35,31 @@ Filter ForkLift favourites in Alfred 3.
 Usage:
     forklift [<query>]
     forklift --help | --version
-    forklift --datadir | --cachedir | --distname | --logfile
+    forklift --distname
+	forklift --logfile
+	forklift --update
 
 Options:
-    --datadir     Print path to workflow's data directory and exit.
-    --cachedir    Print path to workflow's cache directory and exit.
-    --logfile     Print path to workflow's log file and exit.
     --distname    Print filename of distributable .alfredworkflow file
 	              (for the build script).
     -h, --help    Show this message and exit.
+    --logfile     Print path to workflow's log file and exit.
+	-u, --update  Check if an update is available.
 
 `
-	favesFile = os.ExpandEnv("$HOME/Library/Application Support/ForkLift/Favorites/Favorites.json")
-)
-
-var (
 	connectionTypes = []string{"Local", "SFTP", "NFS", "Rackspace", "S3", "Search", "FTP", "Sync", "VNC", "WebDAV", "Workspace"}
-	iconDefault     = &aw.Icon{Value: "icon.png", Type: aw.IconTypeImageFile}
 	connectionIcons map[string]*aw.Icon
+	iconDefault     = &aw.Icon{Value: "icon.png", Type: aw.IconTypeImageFile}
+	iconUpdate      = &aw.Icon{Value: "update-available.png", Type: aw.IconTypeImageFile}
+	favesFile       = os.ExpandEnv("$HOME/Library/Application Support/ForkLift/Favorites/Favorites.json")
+	// workflow configuration
+	repo = "deanishe/alfred-forklift"
+	wf   *aw.Workflow
+	// CLI options
+	query     string
+	doLogfile bool
+	doDist    bool
+	doUpdate  bool
 )
 
 func init() {
@@ -61,6 +68,7 @@ func init() {
 		path := fmt.Sprintf("/Applications/ForkLift.app/Contents/Resources/Connection%s.icns", s)
 		connectionIcons[s] = &aw.Icon{Value: path, Type: aw.IconTypeImageFile}
 	}
+	wf = aw.NewWorkflow(&aw.Options{GitHub: repo})
 }
 
 type faves struct {
@@ -160,62 +168,101 @@ func loadFavourites(path string) ([]*Favourite, error) {
 	return favourites, nil
 }
 
-// run starts the workflow
-func run() {
-	var query string
-
-	vstr := fmt.Sprintf("%s/%v (awgo/%v)", aw.Name(), aw.Version(), aw.AwGoVersion)
-	args, err := docopt.Parse(usage, nil, true, vstr, false)
+func parseArgs() error {
+	vstr := fmt.Sprintf("%s/%v (awgo/%v)", wf.Name(), wf.Version(), aw.AwGoVersion)
+	args, err := docopt.Parse(usage, wf.Args(), true, vstr, false)
 	if err != nil {
-		log.Fatalf("error parsing CLI options: %s", err)
+		return err
 	}
 
 	log.Printf("args=%+v", args)
 
-	// ================ Alternate actions ====================
-
-	if args["--datadir"] == true {
-		fmt.Println(aw.DataDir())
-		return
-	}
-
-	if args["--cachedir"] == true {
-		fmt.Println(aw.CacheDir())
-		return
-	}
-
 	if args["--logfile"] == true {
-		fmt.Println(aw.LogFile())
-		return
+		doLogfile = true
 	}
 
 	if args["--distname"] == true {
+		doDist = true
+	}
+
+	if args["--update"] == true {
+		doUpdate = true
+	}
+
+	if args["<query>"] != nil {
+		query = args["<query>"].(string)
+	}
+	return nil
+}
+
+// run starts the workflow
+func run() {
+	// ================ Alternate actions ====================
+
+	if err := parseArgs(); err != nil {
+		panic(fmt.Sprintf("error parsing arguments: %s", err))
+	}
+
+	if doLogfile == true {
+		fmt.Println(wf.LogFile())
+		return
+	}
+
+	if doDist == true {
 		name := strings.Replace(
-			fmt.Sprintf("%s-%s.alfredworkflow", aw.Name(), aw.Version()),
+			fmt.Sprintf("%s-%s.alfredworkflow", wf.Name(), wf.Version()),
 			" ", "-", -1)
 		fmt.Println(name)
 		return
 	}
 
+	if doUpdate == true {
+		wf.TextErrors = true
+		log.Printf("checking for update...")
+		if err := wf.CheckForUpdate(); err != nil {
+			wf.FatalError(err)
+		}
+		return
+	}
+
 	// ================ Script Filter ====================
 
-	if args["<query>"] != nil {
-		query = fmt.Sprintf("%v", args["<query>"])
-	}
+	var noUID bool
 	log.Printf("query=%s", query)
+
+	// Notify updates
+	if wf.UpdateCheckDue() == true {
+		log.Printf("update check due")
+		wf.Var("check_update", "1")
+	}
+
+	if wf.UpdateAvailable() == true {
+		log.Printf("update available")
+		wf.NewItem("An update is available").
+			Subtitle("↩ or ⇥ to install update").
+			Valid(false).
+			Autocomplete("workflow:update").
+			Icon(iconUpdate)
+		noUID = true
+	}
 
 	// Load favourites
 	faves, err := loadFavourites(favesFile)
 	if err != nil {
 		panic(fmt.Sprintf("couldn't load favourites: %s", err))
 	}
-	log.Printf("%d favourites", len(faves))
+	log.Printf("%d favourite(s)", len(faves))
 
 	for _, f := range faves {
+		var uid string
+		if noUID == false {
+			uid = f.UUID
+		}
 		log.Printf("%s (%s)", f.Name, f.Type)
-		it := aw.NewItem(f.Name).
+		it := wf.NewItem(f.Name).
 			Subtitle(f.Server).
 			Arg(f.UUID).
+			UID(uid).
 			SortKey(fmt.Sprintf("%s %s", f.Name, f.Server)).
 			Icon(f.Icon()).
 			Valid(true)
@@ -224,16 +271,16 @@ func run() {
 	}
 
 	if query != "" {
-		res := aw.Filter(query)
-		log.Printf("%d favourites match '%s'", len(res), query)
+		res := wf.Filter(query)
+		log.Printf("%d favourite(s) match '%s'", len(res), query)
 	}
 
-	aw.WarnEmpty("No matching favourites", "Try a different query?")
+	wf.WarnEmpty("No favourite found", "Try a different query?")
 
-	aw.SendFeedback()
+	wf.SendFeedback()
 }
 
 // main calls run via aw.Run()
 func main() {
-	aw.Run(run)
+	wf.Run(run)
 }

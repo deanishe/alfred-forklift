@@ -19,6 +19,7 @@ log "copying assets to ./build ..."
 mkdir -vp ./build
 
 cp -v icon.png ./build/
+cp -v update-available.png ./build/
 cp -v info.plist ./build/
 cp -v README.md ./build/
 cp -v LICENCE.txt ./build/
