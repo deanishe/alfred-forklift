@@ -34,18 +34,19 @@ var (
 Filter ForkLift favourites in Alfred 3.
 
 Usage:
-    forklift [<query>]
+    forklift [--demo] [<query>]
     forklift --help | --version
     forklift --distname
-	forklift --logfile
-	forklift --update
+    forklift --logfile
+    forklift --update
 
 Options:
     -d, --distname   Print filename of distributable .alfredworkflow file
-	                 (for the build script).
-    -h, --help       Show this message and exit.
-    -l, --logfile    Print path to workflow's log file and exit.
-	-u, --update     Check if an update is available.
+	                 (for the build script)
+    -h, --help       Show this message and exit
+    -l, --logfile    Print path to workflow's log file and exit
+    -u, --update     Check if an update is available
+    --demo           Use demo data instead of real favourites
 
 `
 	// Connection types supported by ForkLift
@@ -63,6 +64,7 @@ Options:
 
 	// CLI options and workflow settings
 	query       string
+	demoMode    bool
 	doLogfile   bool
 	doDist      bool
 	doUpdate    bool
@@ -121,6 +123,7 @@ type Favourite struct {
 	Type   string // Type of favourite (SFTP, Local etc.)
 }
 
+// Icon returns the appropriate icon for the favourite's type
 func (f *Favourite) Icon() *aw.Icon {
 	if f.Type == "Local" {
 		return &aw.Icon{Value: f.Path, Type: aw.IconTypeFileIcon}
@@ -214,6 +217,10 @@ func parseArgs() error {
 		doUpdate = true
 	}
 
+	if args["--demo"] == true {
+		demoMode = true
+	}
+
 	if args["<query>"] != nil {
 		query = args["<query>"].(string)
 	}
@@ -278,10 +285,19 @@ func run() {
 		noUID = true
 	}
 
+	var (
+		faves []*Favourite
+		err   error
+	)
+
 	// Load favourites
-	faves, err := loadFavourites(favesFile)
-	if err != nil {
-		wf.FatalError(fmt.Errorf("couldn't load favourites: %s", err))
+	if demoMode {
+		faves = demoFavourites()
+	} else {
+		faves, err = loadFavourites(favesFile)
+		if err != nil {
+			wf.FatalError(fmt.Errorf("couldn't load favourites: %s", err))
+		}
 	}
 	log.Printf("%d favourite(s)", len(faves))
 
