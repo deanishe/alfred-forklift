@@ -75,7 +75,7 @@ log
 
 $build && {
     log "building executable(s) ..."
-    go build -v -o ./forklift ./forklift.go
+    go build -v -o ./forklift .
     ST_BUILD=$?
     if [ "$ST_BUILD" != 0 ]; then
         log "error building executable."
