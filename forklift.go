@@ -23,7 +23,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	aw "git.deanishe.net/deanishe/awgo"
+	"github.com/deanishe/awgo"
+	"github.com/deanishe/awgo/update"
+	"github.com/deanishe/awgo/util"
 	"github.com/docopt/docopt-go"
 )
 
@@ -68,7 +70,7 @@ func init() {
 		path := fmt.Sprintf("/Applications/ForkLift.app/Contents/Resources/Connection%s.icns", s)
 		connectionIcons[s] = &aw.Icon{Value: path, Type: aw.IconTypeImageFile}
 	}
-	wf = aw.NewWorkflow(&aw.Options{GitHub: repo})
+	wf = aw.New(update.GitHub(repo))
 }
 
 type faves struct {
@@ -127,7 +129,7 @@ func newIcon(filename string) *aw.Icon {
 func loadFavourites(path string) ([]*Favourite, error) {
 	var favourites = []*Favourite{}
 
-	if !aw.PathExists(path) {
+	if !util.PathExists(path) {
 		return nil, fmt.Errorf("file does not exist: %s", path)
 	}
 	data, err := ioutil.ReadFile(path)
@@ -154,7 +156,7 @@ func loadFavourites(path string) ([]*Favourite, error) {
 			}
 
 			// Ignore local favourites whose path doesn't exist
-			if fav.Type == "Local" && !aw.PathExists(fav.Path) {
+			if fav.Type == "Local" && !util.PathExists(fav.Path) {
 				continue
 			}
 
@@ -263,7 +265,7 @@ func run() {
 			Subtitle(f.Server).
 			Arg(f.UUID).
 			UID(uid).
-			SortKey(fmt.Sprintf("%s %s", f.Name, f.Server)).
+			Match(fmt.Sprintf("%s %s", f.Name, f.Server)).
 			Icon(f.Icon()).
 			Valid(true)
 
