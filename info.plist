@@ -207,6 +207,11 @@
 			<integer>40</integer>
 		</dict>
 	</dict>
+	<key>variables</key>
+	<dict>
+		<key>IGNORE_LOCAL</key>
+		<string>1</string>
+	</dict>
 	<key>version</key>
 	<string>0.1.2</string>
 	<key>webaddress</key>

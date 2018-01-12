@@ -3,6 +3,8 @@ ForkLift Favourites for Alfred
 
 Browse, filter and open [ForkLift 3][forklift] favourites from [Alfred][alfred].
 
+![](./demo.gif)
+
 
 Download & installation
 -----------------------

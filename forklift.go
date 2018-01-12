@@ -21,6 +21,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/deanishe/awgo"
@@ -35,33 +36,41 @@ var (
 Filter ForkLift favourites in Alfred 3.
 
 Usage:
-    forklift [<query>]
+    forklift [--demo] [<query>]
     forklift --help | --version
     forklift --distname
-	forklift --logfile
-	forklift --update
+    forklift --logfile
+    forklift --update
 
 Options:
-    --distname    Print filename of distributable .alfredworkflow file
-	              (for the build script).
-    -h, --help    Show this message and exit.
-    --logfile     Print path to workflow's log file and exit.
-	-u, --update  Check if an update is available.
+    -d, --distname   Print filename of distributable .alfredworkflow file
+	                 (for the build script)
+    -h, --help       Show this message and exit
+    -l, --logfile    Print path to workflow's log file and exit
+    -u, --update     Check if an update is available
+    --demo           Use demo data instead of real favourites
 
 `
+	// Connection types supported by ForkLift
 	connectionTypes = []string{"Local", "SFTP", "NFS", "Rackspace", "S3", "Search", "FTP", "Sync", "VNC", "WebDAV", "Workspace"}
 	connectionIcons map[string]*aw.Icon
 	iconDefault     = &aw.Icon{Value: "icon.png", Type: aw.IconTypeImageFile}
 	iconUpdate      = &aw.Icon{Value: "update-available.png", Type: aw.IconTypeImageFile}
-	favesFile       = os.ExpandEnv("$HOME/Library/Application Support/ForkLift/Favorites/Favorites.json")
+
+	// Path to favourites file
+	favesFile = os.ExpandEnv("$HOME/Library/Application Support/ForkLift/Favorites/Favorites.json")
+
 	// workflow configuration
 	repo = "deanishe/alfred-forklift"
 	wf   *aw.Workflow
-	// CLI options
-	query     string
-	doLogfile bool
-	doDist    bool
-	doUpdate  bool
+
+	// CLI options and workflow settings
+	query       string
+	demoMode    bool
+	doLogfile   bool
+	doDist      bool
+	doUpdate    bool
+	ignoreLocal bool
 )
 
 func init() {
@@ -73,6 +82,7 @@ func init() {
 	wf = aw.New(update.GitHub(repo))
 }
 
+// fave* structs are for unmarshalling Favorites.json.
 type faves struct {
 	Groups []*faveGroup `json:"favorites"`
 }
@@ -96,6 +106,15 @@ type faveAttr struct {
 	Server string
 }
 
+// ByName sorts a slice of Favourites by name.
+type ByName []*Favourite
+
+func (s ByName) Len() int { return len(s) }
+
+func (s ByName) Less(i, j int) bool { return s[i].Name < s[j].Name }
+
+func (s ByName) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
+
 // Favourite is a ForkLift favourite
 type Favourite struct {
 	UUID   string // Favourite UUID
@@ -106,6 +125,7 @@ type Favourite struct {
 	Type   string // Type of favourite (SFTP, Local etc.)
 }
 
+// Icon returns the appropriate icon for the favourite's type
 func (f *Favourite) Icon() *aw.Icon {
 	if f.Type == "Local" {
 		return &aw.Icon{Value: f.Path, Type: aw.IconTypeFileIcon}
@@ -121,8 +141,8 @@ func (f *Favourite) Icon() *aw.Icon {
 // newIcon creates a new workflow icon from an icon file in ForkLift's
 // Resources directory.
 func newIcon(filename string) *aw.Icon {
-	path := fmt.Sprintf("/Applications/ForkLift.app/Contents/Resources/Connection%s.icns", filename)
-	return &aw.Icon{Value: path, Type: aw.IconTypeImageFile}
+	p := fmt.Sprintf("/Applications/ForkLift.app/Contents/Resources/Connection%s.icns", filename)
+	return &aw.Icon{Value: p, Type: aw.IconTypeImageFile}
 }
 
 // loadFavourites reads favourites from JSON file at path.
@@ -155,6 +175,10 @@ func loadFavourites(path string) ([]*Favourite, error) {
 				Type:   f.Type,
 			}
 
+			if ignoreLocal && fav.Type == "Local" {
+				continue
+			}
+
 			// Ignore local favourites whose path doesn't exist
 			if fav.Type == "Local" && !util.PathExists(fav.Path) {
 				continue
@@ -167,9 +191,13 @@ func loadFavourites(path string) ([]*Favourite, error) {
 			favourites = append(favourites, fav)
 		}
 	}
+
+	sort.Sort(ByName(favourites))
+
 	return favourites, nil
 }
 
+// parseArgs sets options based on CLI flags and environment variables.
 func parseArgs() error {
 	vstr := fmt.Sprintf("%s/%v (awgo/%v)", wf.Name(), wf.Version(), aw.AwGoVersion)
 	args, err := docopt.Parse(usage, wf.Args(), true, vstr, false)
@@ -191,9 +219,20 @@ func parseArgs() error {
 		doUpdate = true
 	}
 
+	if args["--demo"] == true {
+		demoMode = true
+	}
+
 	if args["<query>"] != nil {
 		query = args["<query>"].(string)
 	}
+
+	v := os.Getenv("IGNORE_LOCAL")
+	log.Printf("IGNORE_LOCAL=%v", v)
+	if v == "1" || v == "true" {
+		ignoreLocal = true
+	}
+
 	return nil
 }
 
@@ -202,7 +241,7 @@ func run() {
 	// ================ Alternate actions ====================
 
 	if err := parseArgs(); err != nil {
-		panic(fmt.Sprintf("error parsing arguments: %s", err))
+		wf.FatalError(fmt.Errorf("error parsing arguments: %s", err))
 	}
 
 	if doLogfile == true {
@@ -248,10 +287,19 @@ func run() {
 		noUID = true
 	}
 
+	var (
+		faves []*Favourite
+		err   error
+	)
+
 	// Load favourites
-	faves, err := loadFavourites(favesFile)
-	if err != nil {
-		panic(fmt.Sprintf("couldn't load favourites: %s", err))
+	if demoMode {
+		faves = demoFavourites()
+	} else {
+		faves, err = loadFavourites(favesFile)
+		if err != nil {
+			wf.FatalError(fmt.Errorf("couldn't load favourites: %s", err))
+		}
 	}
 	log.Printf("%d favourite(s)", len(faves))
 
