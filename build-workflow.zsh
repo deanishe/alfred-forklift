@@ -86,7 +86,7 @@ $build && {
 }
 
 chmod 755 ./forklift
-cp $verbose ./forklift ./build/forklift
+ln $verbose ./forklift ./build/forklift
 
 # Get the dist filename from the executable
 zipfile="$(./forklift --distname 2> /dev/null)"
