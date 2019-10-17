@@ -6,34 +6,11 @@
 	<string>net.deanishe.alfred.forklift</string>
 	<key>connections</key>
 	<dict>
-		<key>24E248A5-4469-4931-8B6B-1C0564F9CDEF</key>
-		<array>
-			<dict>
-				<key>destinationuid</key>
-				<string>4784A8CD-774A-4916-AC0D-2C32C0F711D8</string>
-				<key>modifiers</key>
-				<integer>0</integer>
-				<key>modifiersubtext</key>
-				<string></string>
-				<key>vitoclose</key>
-				<false/>
-			</dict>
-		</array>
 		<key>BC70CD57-DACE-4F66-A7F5-758FBEA3A948</key>
 		<array>
 			<dict>
 				<key>destinationuid</key>
 				<string>0C7F2339-51B3-4C59-A4E6-D134D8F91FD0</string>
-				<key>modifiers</key>
-				<integer>0</integer>
-				<key>modifiersubtext</key>
-				<string></string>
-				<key>vitoclose</key>
-				<false/>
-			</dict>
-			<dict>
-				<key>destinationuid</key>
-				<string>24E248A5-4469-4931-8B6B-1C0564F9CDEF</string>
 				<key>modifiers</key>
 				<integer>0</integer>
 				<key>modifiersubtext</key>
@@ -119,51 +96,22 @@
 			<key>version</key>
 			<integer>1</integer>
 		</dict>
-		<dict>
-			<key>config</key>
-			<dict>
-				<key>concurrently</key>
-				<false/>
-				<key>escaping</key>
-				<integer>102</integer>
-				<key>script</key>
-				<string>./forklift --update</string>
-				<key>scriptargtype</key>
-				<integer>1</integer>
-				<key>scriptfile</key>
-				<string></string>
-				<key>type</key>
-				<integer>0</integer>
-			</dict>
-			<key>type</key>
-			<string>alfred.workflow.action.script</string>
-			<key>uid</key>
-			<string>4784A8CD-774A-4916-AC0D-2C32C0F711D8</string>
-			<key>version</key>
-			<integer>2</integer>
-		</dict>
-		<dict>
-			<key>config</key>
-			<dict>
-				<key>inputstring</key>
-				<string>{var:check_update}</string>
-				<key>matchcasesensitive</key>
-				<true/>
-				<key>matchmode</key>
-				<integer>0</integer>
-				<key>matchstring</key>
-				<string>1</string>
-			</dict>
-			<key>type</key>
-			<string>alfred.workflow.utility.filter</string>
-			<key>uid</key>
-			<string>24E248A5-4469-4931-8B6B-1C0564F9CDEF</string>
-			<key>version</key>
-			<integer>1</integer>
-		</dict>
 	</array>
 	<key>readme</key>
-	<string></string>
+	<string>ForkLift Favourites
+===================
+
+Search ForkLift 3 favourites in Alfred 3+.
+
+Default keyword is "ftp".
+
+
+Configuration
+-------------
+
+IGNORE_LOCAL
+    = 1/true   --  Don't show local favourites
+    = 0/false  --  Include local favourites in results</string>
 	<key>uidata</key>
 	<dict>
 		<key>0C7F2339-51B3-4C59-A4E6-D134D8F91FD0</key>
@@ -174,28 +122,6 @@
 			<integer>240</integer>
 			<key>ypos</key>
 			<integer>40</integer>
-		</dict>
-		<key>24E248A5-4469-4931-8B6B-1C0564F9CDEF</key>
-		<dict>
-			<key>colorindex</key>
-			<integer>8</integer>
-			<key>note</key>
-			<string>check_update == 1</string>
-			<key>xpos</key>
-			<integer>280</integer>
-			<key>ypos</key>
-			<integer>240</integer>
-		</dict>
-		<key>4784A8CD-774A-4916-AC0D-2C32C0F711D8</key>
-		<dict>
-			<key>colorindex</key>
-			<integer>8</integer>
-			<key>note</key>
-			<string>Check for update</string>
-			<key>xpos</key>
-			<integer>410</integer>
-			<key>ypos</key>
-			<integer>210</integer>
 		</dict>
 		<key>BC70CD57-DACE-4F66-A7F5-758FBEA3A948</key>
 		<dict>
@@ -210,10 +136,10 @@
 	<key>variables</key>
 	<dict>
 		<key>IGNORE_LOCAL</key>
-		<string>1</string>
+		<string>true</string>
 	</dict>
 	<key>version</key>
-	<string>0.1.2</string>
+	<string>0.1.3</string>
 	<key>webaddress</key>
 	<string></string>
 </dict>

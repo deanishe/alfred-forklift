@@ -2,30 +2,32 @@
 
 set -e
 
-here="$( cd "$( dirname "$0" )"; pwd )"
-source "${here}/alfred_env.sh"
+here="${${(%):-%x}:A:h}"
+source "${here}/.env"
 
-build=true
 devmode=true
 verbose=
 
+log() {
+    echo "$@" > /dev/stderr
+}
+
 usage() {
     cat <<EOS
-build-workflow.sh [options]
+build-workflow.zsh [options]
 
 Usage:
-    build-workflow.sh [-x] [-d] [-v]
-    build-workflow.sh -h
+    build-workflow.zsh [-d] [-v]
+    build-workflow.zsh -h
 
 Options:
-    -d      Distribution. Also build .alfredworkflow file.
-    -x      Don't build executable.
-    -v      Verbose.
-    -h      Show this help message and exit.
+    -d      also build .alfredworkflow file
+    -v      verbose
+    -h      show this help message and exit
 EOS
 }
 
-while getopts ":dhvx" opt; do
+while getopts ":dhv" opt; do
   case $opt in
     d)
       devmode=false
@@ -37,11 +39,8 @@ while getopts ":dhvx" opt; do
     v)
       verbose=-v
       ;;
-    x)
-      build=false
-      ;;
     \?)
-      log "Invalid option: -$OPTARG"
+      log "invalid option: -$OPTARG"
       exit 1
       ;;
   esac
@@ -49,70 +48,49 @@ done
 shift $((OPTIND-1))
 
 
-log() {
-    echo "$@" > /dev/stderr
-}
-
-pushd "$here" &> /dev/null
+cd "$here"
 
 test -d "build" && {
     log "cleaning ./build ..."
-    rm $verbose -rf ./build
+    command rm $verbose -rf ./build/*
     log
-}
+} || true
 
 
 log "copying assets to ./build ..."
 
 mkdir $verbose -p ./build
 
-ln $verbose icon.png ./build/
-ln $verbose update-available.png ./build/
-ln $verbose info.plist ./build/
-ln $verbose README.md ./build/
-ln $verbose LICENCE.txt ./build/
+cd ./build
+ln -s $verbose ../*.png .
+ln -s $verbose ../info.plist .
+ln -s $verbose ../README.md .
+ln -s $verbose ../LICENCE.txt .
+cd -
 log
 
-$build && {
-    log "building executable(s) ..."
-    go build -v -o ./forklift .
-    ST_BUILD=$?
-    if [ "$ST_BUILD" != 0 ]; then
-        log "error building executable."
-        rm $verbose -rf ./build/
-        popd &> /dev/null
-        exit $ST_BUILD
-    fi
-}
 
-chmod 755 ./forklift
-ln $verbose ./forklift ./build/forklift
+log "building executable(s) ..."
+go build -v -o ./build/forklift .
+log
 
-# Get the dist filename from the executable
-zipfile="$(./forklift --distname 2> /dev/null)"
-
-if test -e "$zipfile"; then
-    log "removing existing .alfredworkflow file ..."
-    rm $verbose -rf "$zipfile"
-    log
-fi
 
 $devmode || {
+    # Get the dist filename from the executable
+    zipfile="ForkLift-Favourites-${alfred_workflow_version}.alfredworkflow"
+
+    test -f "./dist/$zipfile" && {
+        log "removing existing .alfredworkflow file ..."
+        rm $verbose -f "./dist/$zipfile"
+        log
+    } || true
+
     log "building $zipfile ..."
-    pushd ./build/ &> /dev/null
-    zip $verbose "../${zipfile}" *
-    ST_ZIP=$?
-    if [ "$ST_ZIP" != 0 ]; then
-        log "error creating .alfredworkflow file."
-        rm $verbose -rf ./build/
-        popd &> /dev/null
-        exit $ST_ZIP
-    fi
-    popd &> /dev/null
+    mkdir $verbose -p ./dist
+    cd ./build
+    zip $verbose "../dist/${zipfile}" *
     log
 }
 
-
-popd &> /dev/null
-log "all done."
+log "all done"
 
